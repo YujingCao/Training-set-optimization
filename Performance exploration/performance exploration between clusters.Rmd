@@ -1,0 +1,176 @@
+---
+title: "performance_exploration_between_clusters"
+output: html_document
+---
+
+
+```{r}
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+
+```
+
+
+ 
+
+```{r}
+compare_results <- function(original_data, prediction_results, trait){
+  ##Use Pedigree to link each other.
+  temp_original_dataset <- original_data[original_data$OBSRVTN_REF_CD == trait,]
+  temp_original_dataset <- temp_original_dataset %>%
+    group_by(PEDIGREE_NAME) %>%
+    summarise(mean_by_pedigree = mean(TRAIT_VALUE, na.rm = T))
+  temp_prediction_dataset <- prediction_results[prediction_results$trait == trait,]
+  temp_combined_dataset <- left_join(temp_original_dataset, temp_prediction_dataset,
+                                     by = c('PEDIGREE_NAME' = 'PEDIGREE_NAME'))
+  performance_measure <- cor(temp_combined_dataset$mean_by_pedigree, 
+                             temp_combined_dataset$predicted.value,
+                             use = "complete.obs")
+  return(performance_measure)
+}
+```
+
+
+
+
+
+
+```{r}
+s3load(object = 'Cucumber/Cucumber_Parentals.RData', bucket = "veg-apd-sdi-predictiveanalytcs-prod-reference-data")
+```
+
+
+
+
+```{r, include=FALSE}
+percent <- c(0.2, 0.5, 0.8, 1) 
+BLUPs <- c('SSGBLUP')
+#TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+repetition <- seq(1,5)
+cluster <- 4
+all_combination <- combn(1:cluster, 2)
+assessment_matrix <- as.data.frame(matrix(NA, 
+                                   nrow = cluster * length(percent)*length(BLUPs)*length(repetition), 
+                                          ncol = length(TRAITS) + 8))
+ 
+for (repeat_exp in 1:length(repetition))
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    for(clu in 1:ncol(all_combination)){
+      
+    training_test_setting <- paste0('0',all_combination[1,clu], '_to_predict_', '0', 
+                                    all_combination[2,clu])
+      
+    input_path <- paste0("/mnt/PCA/Spring_between_cluster_13", repetition[repeat_exp], '/',
+                       training_test_setting, '/')
+    load(paste0(input_path, '/',
+                100*percent[perc], '/1/', 'results/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path, '/',
+                100*percent[perc], '/1/', 'results/results_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path, '/',
+                100*percent[perc], '/1/', 'results/Training_data.Rdata'), verbose = T)
+    Training_main_info <- left_join(Training_main_info, CropParents[CropParents$ChildGeneration %in% c('DH0','DH1','DH2','DH3','DH4','DH5','DH6','DH7','DH8','DH9'),],    
+                                    by = c('P1' = 'ChildPedigree'))
+    uni_loc <- length(unique(Training_main_info$FIELD_NAME))
+    uni_ori <- length(unique(Training_main_info$FemalePedigree))
+    uni_lines <- length(unique(c(Training_main_info$P1, Training_main_info$P2)))
+    uni_lines_test <- paste0(length(unique(True_values$FemalePedigree)), '+',
+                        length(unique(True_values$P2)))
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values, results, 
+                                                    trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j], training_test_setting, 
+                     repetition[repeat_exp], uni_loc, uni_ori, uni_lines, uni_lines_test)
+    assessment_matrix[length(BLUPs)*length(percent)*2*ncol(all_combination)*(repeat_exp - 1) + 
+                        length(BLUPs) * 2*ncol(all_combination)* (perc - 1) + 
+                        (j - 1)*2*ncol(all_combination) + 
+                        2*clu - 1,] <- performance
+
+    
+    
+    
+    training_test_setting <- paste0('0',all_combination[2,clu], '_to_predict_', '0', 
+                                    all_combination[1,clu])
+      
+    input_path <- paste0("/mnt/PCA/Spring_between_cluster_13", repetition[repeat_exp], '/',
+                       training_test_setting, '/')
+    load(paste0(input_path,  '/',
+                100*percent[perc], '/1/', 'results/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,  '/',
+                100*percent[perc], '/1/', 'results/results_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,  '/',
+                100*percent[perc], '/1/', 'results/Training_data.Rdata'), verbose = T)
+    uni_loc <- length(unique(Training_main_info$FIELD_NAME))
+    uni_ori <- length(unique(Training_main_info$FemalePedigree))
+    uni_lines <- paste0(length(unique(Training_main_info$FemalePedigree)), '+',
+                        length(unique(Training_main_info$P2)))
+    uni_lines_test <- paste0(length(unique(True_values$FemalePedigree)), '+',
+                        length(unique(True_values$P2)))
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values, results, 
+                                                    trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j], training_test_setting, 
+                     repetition[repeat_exp], uni_loc, uni_ori, uni_lines, uni_lines_test)
+    assessment_matrix[length(BLUPs)*length(percent)*2*ncol(all_combination)*(repeat_exp - 1) + 
+                        length(BLUPs) * 2*ncol(all_combination)* (perc - 1) + 
+                        (j - 1)*2*ncol(all_combination) + 
+                        2*clu,] <- performance    
+  }
+}
+}
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP', 'Cluster','EXP', 'LOC', 'ORIGIN', 'Lines',
+                              'Lines_test')
+
+for (trait in 1:length(TRAITS)){
+  assessment_matrix[,TRAITS[trait]] <- as.numeric(assessment_matrix[,TRAITS[trait]])
+}
+```
+
+
+
+
+
+```{r}
+#calculated_accuracy <- vector(mode = 'list')
+#for (clu in 1:ncol(all_combination_alter)){
+  
+#name <- paste0('0',all_combination[1,clu], '_to_predict_', '0', 
+#                                    all_combination[2,clu])
+calculated_accuracy <- assessment_matrix %>% 
+  group_by(percent, BLUP) %>%
+  summarise(Average_FRLGT = mean(FRLGT),
+            Average_SHAPE = mean(SHAPE),
+            Average_AFW_C = mean(AFW_C),
+            Average_FRNMK = mean(FRNMK),
+            Average_EXTCO = mean(EXTCO),
+            SD_FRLGT = sd(FRLGT),
+            SD_SHAPE = sd(SHAPE),
+            SD_AFW_C = sd(AFW_C),
+            SD_FRNMK = sd(FRNMK),
+            SD_EXTCO = sd(EXTCO))
+
+
+#}
+```
+```{r}
+assessment_matrix_between_cluster <- assessment_matrix
+calculated_accuracy_between_cluster <- calculated_accuracy
+```
+
+```{r}
+
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix[, 
+                                            c(trait, 'percent', 'BLUP', 'Cluster')], 
+                  mapping = aes_string(x = 'percent', y = trait, col = 'Cluster'))+
+  geom_boxplot()
+  print(visual)
+    }
+
+
+```

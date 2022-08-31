@@ -1,0 +1,330 @@
+---
+title: "results comparasion"
+output: html_document
+---
+
+#### Load the Traits
+
+```{r}
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")#,
+         # "WFSA_C","NFSA_C")
+```
+
+
+
+
+```{r}
+compare_results <- function(original_data, prediction_results, trait){
+  
+  ##Use Pedigree to link each other.
+  
+  temp_original_dataset <- original_data[original_data$OBSRVTN_REF_CD == trait,]
+  
+  ## Calculate the mean of the original dataset for the pedigrees.
+  
+  temp_original_dataset <- temp_original_dataset %>%
+    group_by(PEDIGREE_NAME) %>%
+    summarise(mean_by_pedigree = mean(TRAIT_VALUE, na.rm = T))
+  temp_prediction_dataset <- prediction_results[prediction_results$trait == trait,]
+  temp_combined_dataset <- left_join(temp_original_dataset, temp_prediction_dataset,
+                                     by = c('PEDIGREE_NAME' = 'PEDIGREE_NAME'))
+  
+  ## Use the Correlation between the original dataset and predicted values as performance measure.
+  
+  performance_measure <- cor(temp_combined_dataset$mean_by_pedigree, 
+                             temp_combined_dataset$predicted.value,
+                             use = "complete.obs")
+  return(performance_measure)
+}
+```
+
+
+
+
+
+#### Spring Results Analysis
+
+
+The results are saved as format: /mnt/veg_blup/train_growseason_selection_method_seed
+
+
+```{r, include=FALSE}
+percent <- c(0.2, 0.5, 0.8, 1) 
+BLUPs <- c('SSGBLUP')
+#TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+repetition <- seq(1,10)
+assessment_matrix <- as.data.frame(matrix(NA, 
+                                   nrow = length(percent)*length(BLUPs)*length(repetition), 
+                                          ncol = length(TRAITS) + 7))
+ 
+for (repeat_exp in 1:length(repetition))
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/train_spring_origin_tester_11", 
+                       repetition[repeat_exp], '/')
+    load(paste0(input_path, 
+                100*percent[perc], '/1/','results/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/results_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/Training_data.Rdata'), verbose = T)
+    uni_loc <- length(unique(Training_main_info$FIELD_NAME))
+    uni_ori <- length(unique(Training_main_info$FemalePedigree))
+    uni_lines <- paste0(length(unique(Training_main_info$FemalePedigree)), '+',
+                        length(unique(Training_main_info$P2)))
+    uni_lines_test <- paste0(length(unique(True_values$FemalePedigree)), '+',
+                        length(unique(True_values$P2)))
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values, results, 
+                                                    trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j], 
+                     repetition[repeat_exp], uni_loc, uni_ori, uni_lines, uni_lines_test)
+    assessment_matrix[length(BLUPs)*length(percent)*(repeat_exp - 1) + length(BLUPs) * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP', 'EXP', 'LOC', 'ORIGIN', 'Lines', 'Lines_test')
+
+for (trait in 1:length(TRAITS)){
+  assessment_matrix[,TRAITS[trait]] <- as.numeric(assessment_matrix[,TRAITS[trait]])
+}
+```
+
+
+Calculate the means and sds for each percent and trait.
+
+
+```{r}
+calculated_accuracy <- assessment_matrix %>% 
+  group_by(percent) %>%
+  summarise(Average_FRLGT = mean(FRLGT),
+            Average_SHAPE = mean(SHAPE),
+            Average_AFW_C = mean(AFW_C),
+            Average_FRNMK = mean(FRNMK),
+            Average_EXTCO = mean(EXTCO),
+            SD_FRLGT = sd(FRLGT),
+            SD_SHAPE = sd(SHAPE),
+            SD_AFW_C = sd(AFW_C),
+            SD_FRNMK = sd(FRNMK),
+            SD_EXTCO = sd(EXTCO))
+```
+
+
+Save the summary and detailed results
+
+
+```{r}
+assessment_matrix_spring <- assessment_matrix
+calculated_accuracy_spring <- calculated_accuracy
+```
+
+
+Plot the accuracy.
+
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix[ , c(trait, 'percent', 'BLUP')], 
+                   mapping = aes_string(x = 'percent', y = trait, col = 'percent'))+
+    geom_boxplot()
+  print(visual)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+#### Summer Results Analysis
+
+
+
+
+
+```{r, include=FALSE}
+percent <- c(0.2, 0.5, 0.8, 1) 
+BLUPs <- c('SSGBLUP')
+#TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+repetition <- seq(1, 10)
+assessment_matrix <- as.data.frame(matrix(NA, 
+                                   nrow = length(percent)*length(BLUPs)*length(repetition), 
+                                          ncol = length(TRAITS) + 7))
+ 
+for (repeat_exp in 1:length(repetition))
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/train_summer_origin_tester_51", 
+                       repetition[repeat_exp], '/')
+    load(paste0(input_path, 
+                100*percent[perc], '/1/','results/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/results_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/Training_data.Rdata'), verbose = T)
+    uni_loc <- length(unique(Training_main_info$FIELD_NAME))
+    uni_ori <- length(unique(Training_main_info$FemalePedigree))
+    uni_lines <- paste0(length(unique(Training_main_info$FemalePedigree)), '+',
+                        length(unique(Training_main_info$P2)))
+    uni_lines_test <- paste0(length(unique(True_values$FemalePedigree)), '+',
+                        length(unique(True_values$P2)))
+        performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values, results, 
+                                                    trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j], 
+                     repetition[repeat_exp], uni_loc, uni_ori, uni_lines, uni_lines_test)
+    assessment_matrix[length(BLUPs)*length(percent)*(repeat_exp - 1) + length(BLUPs) * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP', 'EXP', 'LOC', 'ORIGIN', 'Lines', 'Lines_test')
+
+for (trait in 1:length(TRAITS)){
+  assessment_matrix[,TRAITS[trait]] <- as.numeric(assessment_matrix[,TRAITS[trait]])
+}
+```
+
+
+
+
+```{r}
+calculated_accuracy <- assessment_matrix %>% 
+  group_by(percent) %>%
+  summarise(Average_FRLGT = mean(FRLGT),
+            Average_SHAPE = mean(SHAPE),
+            Average_AFW_C = mean(AFW_C),
+            Average_FRNMK = mean(FRNMK),
+            Average_EXTCO = mean(EXTCO),
+            SD_FRLGT = sd(FRLGT),
+            SD_SHAPE = sd(SHAPE),
+            SD_AFW_C = sd(AFW_C),
+            SD_FRNMK = sd(FRNMK),
+            SD_EXTCO = sd(EXTCO))
+```
+
+```{r}
+assessment_matrix_summer <- assessment_matrix
+calculated_accuracy_summer <- calculated_accuracy
+```
+
+
+
+
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix[ , c(trait, 'percent', 'BLUP')], 
+                   mapping = aes_string(x = 'percent', y = trait, col = 'percent'))+
+    geom_boxplot()
+  print(visual)
+}
+```
+
+
+
+
+
+
+#### Fall Results Analysis
+
+
+
+
+
+```{r, include=FALSE}
+percent <- c(0.2, 0.5, 0.8, 1) 
+BLUPs <- c('SSGBLUP')
+#TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+repetition <- seq(1, 10)
+assessment_matrix <- as.data.frame(matrix(NA, 
+                                   nrow = length(percent)*length(BLUPs)*length(repetition), 
+                                          ncol = length(TRAITS) + 7))
+ 
+for (repeat_exp in 1:length(repetition))
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/train_fall_origin_gy_tester_81", 
+                       repetition[repeat_exp], '/')
+    load(paste0(input_path, 
+                100*percent[perc], '/1/','results/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/results_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path,
+                100*percent[perc], '/1/','results/Training_data.Rdata'), verbose = T)
+    uni_loc <- length(unique(Training_main_info$FIELD_NAME))
+    uni_ori <- length(unique(Training_main_info$FemalePedigree))
+    uni_lines <- paste0(length(unique(Training_main_info$FemalePedigree)), '+',
+                        length(unique(Training_main_info$P2)))
+    uni_lines_test <- paste0(length(unique(True_values$FemalePedigree)), '+',
+                        length(unique(True_values$P2)))
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values, results, 
+                                                    trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j], 
+                     repetition[repeat_exp], uni_loc, uni_ori, uni_lines, uni_lines_test)
+    assessment_matrix[length(BLUPs)*length(percent)*(repeat_exp - 1) + length(BLUPs) * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP', 'EXP', 'LOC', 'ORIGIN', 'Lines', 'Lines_test')
+
+for (trait in 1:length(TRAITS)){
+  assessment_matrix[,TRAITS[trait]] <- as.numeric(assessment_matrix[,TRAITS[trait]])
+}
+```
+
+
+
+
+```{r}
+calculated_accuracy <- assessment_matrix %>% 
+  group_by(percent) %>%
+  summarise(Average_FRLGT = mean(FRLGT),
+            Average_SHAPE = mean(SHAPE),
+            Average_AFW_C = mean(AFW_C),
+            Average_FRNMK = mean(FRNMK),
+            Average_EXTCO = mean(EXTCO),
+            SD_FRLGT = sd(FRLGT),
+            SD_SHAPE = sd(SHAPE),
+            SD_AFW_C = sd(AFW_C),
+            SD_FRNMK = sd(FRNMK),
+            SD_EXTCO = sd(EXTCO))
+```
+
+```{r}
+assessment_matrix_fall <- assessment_matrix
+calculated_accuracy_fall <- calculated_accuracy
+```
+
+
+
+
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix[ , c(trait, 'percent', 'BLUP')], 
+                   mapping = aes_string(x = 'percent', y = trait, col = 'percent'))+
+    geom_boxplot()
+  print(visual)
+}
+```
+
+
+

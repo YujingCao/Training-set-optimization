@@ -1,0 +1,317 @@
+---
+title: "results comparasion"
+output: html_document
+---
+
+```{r}
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+load("/mnt/veg_blup/train_fall_2021_1yr/Prediction_2017_to_2018ABLUPABLUP_deep/NETWTSum_1-57_deep/results_asreml_ABLUP_with_gg_Zixuan.Rdata", verbose = T)
+```
+
+
+
+
+```{r}
+compare_results <- function(original_data, prediction_results, trait){
+  ##Use Pedigree to link each other.
+  temp_original_dataset <- original_data[original_data$OBSRVTN_REF_CD == trait,]
+  temp_original_dataset <- temp_original_dataset %>% 
+    group_by(PEDIGREE_NAME) %>%
+    summarise(mean_by_pedigree = mean(TRAIT_VALUE, na.rm = T))
+  temp_prediction_dataset <- prediction_results[prediction_results$trait == trait,]
+  temp_combined_dataset <- left_join(temp_original_dataset, temp_prediction_dataset,
+                                     by = c('PEDIGREE_NAME' = 'PEDIGREE_NAME'))
+  performance_measure <- cor(temp_combined_dataset$mean_by_pedigree, 
+                             temp_combined_dataset$predicted.value,
+                             use = "complete.obs")
+  return(performance_measure)
+}
+```
+
+
+
+
+```{r, include=FALSE}
+percent <- seq(0.05, 0.40, by = 0.05)
+BLUPs <- c('SSGBLUP',
+           'ABLUP')
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+assessment_matrix <- as.data.frame(matrix(NA, nrow = length(percent)*length(BLUPs), ncol = length(TRAITS) + 2))
+
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/traintest_pedigree_split:2017-2021_to_2022_spring_2022yr_", 100*percent[perc], "%/")
+    load(paste0(input_path, BLUPs[j],'_deep/','NPA_deep/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path, BLUPs[j],'_deep/','NPA_deep/results_asreml_zixuan.Rdata'), verbose = T)
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values_spring, results, trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j])
+    assessment_matrix[2 * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP')
+```
+
+
+
+```{r, include=FALSE}
+percent <- seq(0.45, 0.80, by = 0.05)
+BLUPs <- c('SSGBLUP',
+           'ABLUP')
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE",
+          "WFSA_C","NFSA_C")
+assessment_matrix_2nd <- as.data.frame(matrix(NA, nrow = length(percent)*length(BLUPs), ncol = length(TRAITS) + 2))
+
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/traintest_pedigree_split:2017-2021_to_2022_spring_2022yr_", 100*percent[perc], "%/")
+    load(paste0(input_path, BLUPs[j],'_deep/','NETWTSum_1-84_deep/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path, BLUPs[j],'_deep/','NETWTSum_1-84_deep/results_asreml_zixuan.Rdata'), verbose = T)
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values_spring, results, trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j])
+    assessment_matrix_2nd[2 * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix_2nd) <- c(TRAITS, 'percent', 'BLUP')
+```
+
+
+
+```{r}
+assessment_matrix_5_to_80 <- rbind(assessment_matrix, assessment_matrix_2nd)
+```
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix_5_to_80[ , c(TRAITS[trait], 'percent', 'BLUP')], mapping = aes(x = percent, y = trait, col = BLUP)) + geom_bar()
+  print(visual)
+}
+```
+
+
+
+
+```{r, include=FALSE}
+percent <- c(1)
+BLUPs <- c('SSGBLUP',
+           'ABLUP')
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+assessment_matrix <- as.data.frame(matrix(NA, nrow = length(percent)*length(BLUPs), ncol = length(TRAITS) + 2))
+
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/traintest_spring_2022yr_Dunia/")
+    load(paste0(input_path, BLUPs[j],'_deep/','SHAPE_deep/original_asreml_zixuan.Rdata'), verbose = T)
+    load(paste0(input_path, BLUPs[j],'_deep/','SHAPE_deep/results_asreml_zixuan.Rdata'), verbose = T)
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values_spring, results, trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j])
+    assessment_matrix[2 * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix) <- c(TRAITS, 'percent', 'BLUP')
+```
+
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix[ , c(trait, 'percent', 'BLUP')], mapping = aes_string(x = 'percent', y = trait, col = 'BLUP')) + geom_point()
+  print(visual)
+}
+```
+
+
+
+```{r, include=FALSE}
+percent <- c(1)
+BLUPs <- c('SSGBLUP',
+           'ABLUP')
+TRAITS <- c('FRLGT','EXTCO',"AFW_C","FRNMK","SHAPE")
+assessment_matrix_Dunia_2 <- as.data.frame(matrix(NA, nrow = length(percent)*length(BLUPs), ncol = length(TRAITS) + 2))
+
+for(perc in 1:length(percent)){
+  for(j in 1:length(BLUPs)){
+    input_path <- paste0("/mnt/veg_blup/train_spring_Dunia_2/")
+    load(paste0(input_path, BLUPs[j],'_deep/',"SHAPE_deep/original_asreml_zixuan.Rdata"), verbose = T)
+    load(paste0(input_path, BLUPs[j],'_deep/','SHAPE_deep/results_asreml_zixuan.Rdata'), verbose = T)
+    performance <- c()
+    for(trait in 1:length(TRAITS)){
+
+      performance <- c(performance, compare_results(True_values_spring, results, trait = TRAITS[trait]))
+    }
+    performance <- c(performance, percent[perc], BLUPs[j])
+    assessment_matrix_Dunia_2[2 * (perc - 1) + j,] <- performance
+    
+  }
+}
+
+names(assessment_matrix_Dunia_2) <- c(TRAITS, 'percent', 'BLUP')
+```
+
+
+```{r}
+for (trait in TRAITS){
+  visual <- ggplot(data = assessment_matrix_Dunia_2[ , c(trait, 'percent', 'BLUP')], mapping = aes_string(x = 'percent', y = trait, col = 'BLUP')) + geom_point()
+  print(visual)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Scenario 1:
+
+
+Training set: 75% random selection from: (GROWSEASON%in%c("2021:01") & TEST_SET_NAME%in%c('21EURP2B1') & FIELD_NAME%in%c('HAK', 'HES', 'KEI', 'JEV', 'V29'))
+
+Test set: The rest 25% of them
+
+Model: SSGBLUP
+
+
+
+```{r}
+TRAITS <- c("EXTCO","FRLGT","AFW_C","FRNMK","SHAPE","WFSA_C",
+          "NFSA_C"
+          )
+performance_scenario_1 <- c()
+for(i in 1:length(TRAITS)){
+  TRAIT_CHOOSEN <- TRAITS[i]
+  performance_scenario_1 <- c(performance_scenario_1, 
+                                compare_results(True_values_spring,
+                                                 results,
+                                                 TRAIT_CHOOSEN))
+  
+}
+names(performance_scenario_1) <- TRAITS
+print(performance_scenario_1)
+```
+
+
+
+
+2017-2018 Prediction Performance
+
+```{r}
+performance_2017_to_2018 <- c()
+for(i in 1:length(TRAITS)){
+  TRAIT_CHOOSEN <- TRAITS[i]
+  performance_2017_to_2018 <- c(performance_2017_to_2018, 
+                                compare_results(True_values_2018,
+                                                 results,
+                                                 TRAIT_CHOOSEN))
+  
+}
+names(performance_2017_to_2018) <- TRAITS
+print(performance_2017_to_2018)
+```
+
+
+
+
+2020-2021 Prediction Performance
+
+```{r}
+performance_2020_to_2021 <- c()
+for(i in 1:length(TRAITS)){
+  TRAIT_CHOOSEN <- TRAITS[i]
+  performance_2020_to_2021 <- c(performance_2020_to_2021, 
+                                compare_results(True_values_2021,
+                                                 results,
+                                                 TRAIT_CHOOSEN))
+  
+}
+names(performance_2020_to_2021) <- TRAITS
+print(performance_2020_to_2021)
+```
+
+
+
+
+
+
+
+
+
+2020-2021 75% Prediction Performance for ABLUP
+
+```{r}
+performance_2020_to_2021 <- c()
+for(i in 1:length(TRAITS)){
+  TRAIT_CHOOSEN <- TRAITS[i]
+  performance_2020_to_2021 <- c(performance_2020_to_2021, 
+                                compare_results(True_values_2021,
+                                                 results,
+                                                 TRAIT_CHOOSEN))
+  
+}
+names(performance_2020_to_2021) <- TRAITS
+print(performance_2020_to_2021)
+```
+
+
+
+2020-2021 75% Prediction Performance for SSGBLUP
+
+```{r}
+performance_2020_to_2021 <- c()
+for(i in 1:length(TRAITS)){
+  TRAIT_CHOOSEN <- TRAITS[i]
+  performance_2020_to_2021 <- c(performance_2020_to_2021, 
+                                compare_results(True_values_2021,
+                                                 results,
+                                                 TRAIT_CHOOSEN))
+  
+}
+names(performance_2020_to_2021) <- TRAITS
+print(performance_2020_to_2021)
+```
+
+
+
+
+
+
+```{r}
+write_csv2(results, 
+           path = "/mnt/veg_blup/train_fall_2021_1yr/Prediction_2017to2020_to_2021SSGBLUP_75%SSGBLUP_deep/NETWTSum_1-57_deep/results.csv")
+write_csv2(True_values_2021, 
+           path = "/mnt/veg_blup/train_fall_2021_1yr/Prediction_2017to2020_to_2021SSGBLUP_75%SSGBLUP_deep/NETWTSum_1-57_deep/original.csv")
+```
+
+
+
