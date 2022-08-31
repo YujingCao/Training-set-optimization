@@ -9,3 +9,5 @@ The function 'inbred_vals' in the 'getbdat_AOB_V3_git.R' file need to run for on
 Attention: Function 'inbred_vals' requests ASREML license!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Ask for permission before using it.
 
 The files generated during the modeling process are deleted. If the details are of interest, please modify the codes.
+
+Have fun~
